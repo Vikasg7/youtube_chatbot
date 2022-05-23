@@ -1,7 +1,5 @@
 module Utils
 
-function escapeAmpersand(str::String)::String
-   replace(str, "&" => "^&")
-end
+escapeAmpersand(str::String) = replace(str, "&" => "^&")
 
 end

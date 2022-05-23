@@ -4,18 +4,20 @@ using HTTP
 using URIs
 using Sockets
 using DefaultApplication
+using JSON3
 
 using ..Utils
 using ..Data
+using ..Token
 
 const AUTH_ENPOINT  = "https://accounts.google.com/o/oauth2/v2/auth"
 const TOKEN_ENPOINT = "https://oauth2.googleapis.com/token"
 
-function get_auth_url(config::Data.Config)::String
-   params = Dict("redirect_uri"  => config.redirectUrl,
-                 "client_id"     => config.clientId,
+function get_auth_url(cnfg::Data.Config)::String
+   params = Dict("redirect_uri"  => cnfg.redirectUrl,
+                 "client_id"     => cnfg.clientId,
                  "access_type"   => "offline",
-                 "scope"         => join(config.scopes, " "),
+                 "scope"         => join(cnfg.scopes, " "),
                  "prompt"        => "select_account",
                  "response_type" => "code")
    return URI(URI(AUTH_ENPOINT); query=params) |> string
@@ -38,13 +40,13 @@ function await_authorization_code(redirectUrl::String)
       error = get(params, "error", nothing)
       if error !== nothing
          put!(chnl, AuthFailed(error))
-         return HTTP.Response("Sorry, couldn't Authenticate. Reason:- $(error)")
+         return HTTP.Response("Authentication failed. Reason:- $(error)")
       end
       code = get(params, "code", nothing)
       # just in case, if code is nothing
       if code === nothing
          put!(chnl, AuthFailed("Code is undefined"))
-         return HTTP.Response("Sorry, couldn't Authenticate. Reason:- Code is undefined")
+         return HTTP.Response("Authentication failed. Reason:- Code is undefined")
       end
       put!(chnl, code)
       HTTP.Response("Authenticated with code:- $(code)")
@@ -55,21 +57,38 @@ function await_authorization_code(redirectUrl::String)
    return rslt
 end
 
-function get_authorization_code(config::Data.Config)::String
-   url = get_auth_url(config)
+function get_authorization_code(cnfg::Data.Config)::String
+   url = get_auth_url(cnfg)
    @info "Authentication Url: $url"
    escUrl = Utils.escapeAmpersand(url)
    DefaultApplication.open(escUrl; wait=true)
-   code = await_authorization_code(config.redirectUrl)
+   code = await_authorization_code(cnfg.redirectUrl)
    @info "Authorization Code: $code"
    return code
 end
 
-function get_access_token(code)
+function get_access_token(cnfg::Data.Config, code::String)::Data.Token
+   hdrs = ["Content-Type" => "application/x-www-form-urlencoded"]
+   prts = Dict("code"          => code,
+               "redirect_uri"  => cnfg.redirectUrl,
+               "client_id"     => cnfg.clientId,
+               "client_secret" => cnfg.clientSecret,
+               "scope"         => join(cnfg.scopes, " "),
+               "grant_type"    => "authorization_code")
+   # [2:end] for removing the ? infront
+   body = string(URI(;query=prts))[2:end]
+   resp = HTTP.post(TOKEN_ENPOINT, hdrs, body)
+   @info "->" String(resp.body)
+   tokn = resp.body |> String |> JSON3.read |> Token.read
+   tokn.expires_in = floor(Int64, Dates.time()) + tokn.expires_in
+   return tokn
+end
+
+function renew_access_token(tokn::Data.Token)
 
 end
 
-function renew_access_token(token)
+function request()
 
 end
 
