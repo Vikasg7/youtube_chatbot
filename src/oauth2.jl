@@ -59,37 +59,50 @@ end
 
 function get_authorization_code(cnfg::Data.Config)::String
    url = get_auth_url(cnfg)
-   @info "Authentication Url: $url"
+   @info "Authentication Url: $(url)"
    escUrl = Utils.escapeAmpersand(url)
    DefaultApplication.open(escUrl; wait=true)
    code = await_authorization_code(cnfg.redirectUrl)
-   @info "Authorization Code: $code"
+   @info "Authorization Code: $(code)"
    return code
 end
 
-function get_access_token(cnfg::Data.Config, code::String)::Data.Token
+function token_request(body::Dict{String, String})::Data.Token
    hdrs = ["Content-Type" => "application/x-www-form-urlencoded"]
-   prts = Dict("code"          => code,
+   resp = HTTP.post(TOKEN_ENPOINT, hdrs, URIs.escapeuri(body))
+   tokn = resp.body |> String |> Token.read
+   # TODO: Test Token for new constructor to encapsulate +ing timeInMS
+   tokn.expires_in = Utils.timeInMS() + tokn.expires_in
+   return tokn
+end
+
+function get_access_token(cnfg::Data.Config, code::String)::Data.Token
+   body = Dict("code"          => code,
                "redirect_uri"  => cnfg.redirectUrl,
                "client_id"     => cnfg.clientId,
                "client_secret" => cnfg.clientSecret,
                "scope"         => join(cnfg.scopes, " "),
                "grant_type"    => "authorization_code")
-   # [2:end] for removing the ? infront
-   body = string(URI(;query=prts))[2:end]
-   resp = HTTP.post(TOKEN_ENPOINT, hdrs, body)
-   @info "->" String(resp.body)
-   tokn = resp.body |> String |> JSON3.read |> Token.read
-   tokn.expires_in = floor(Int64, Dates.time()) + tokn.expires_in
-   return tokn
+   return token_request(body)
 end
 
-function renew_access_token(tokn::Data.Token)
-
+function renew_access_token(cnfg::Data.Config, tokn::Data.Token)::Data.Token
+   body = Dict("client_id"     => cnfg.clientId,
+               "client_secret" => cnfg.clientSecret,
+               "refresh_token" => tokn.refresh_token,
+               "grant_type"    => "refresh_token")
+   return token_request(body)
 end
 
-function request()
-
+function request(method, url, body, params, cnfg::Data.Config, tokn::RefValue{Data.Token})
+   # Refreshing the access_token 15 second before it expires
+   if tokn[].expires_in - Utils.timeInMS() <= 15 * 1000
+      tokn[] = renew_access_token(cnfg, tokn[])
+   end
+   hdrs = ["Authorization" => "$(tokn[].token_type) $(tokn[].access_token)",
+           "Accept"        => "application/json"]
+   resp = HTTP.request(method, url, hdrs, URIs.escapeuri(body); query=params)
+   return resp |> String |> JSON3.read
 end
 
 end
