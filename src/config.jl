@@ -7,8 +7,8 @@ using ..Data
 StructTypes.StructType(::Type{Data.Config}) = StructTypes.Struct()
 
 function read(fPath::String)::Data.Config
-   open(fPath) do f
-      content = Base.read(f, String)
+   open(fPath) do io
+      content = Base.read(io, String)
       JSON3.read(content, Data.Config)
    end
 end

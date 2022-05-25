@@ -7,12 +7,15 @@ struct Config
    redirectUrl::String
 end
 
-mutable struct Token
+mutable struct AccessToken
    access_token::String
    expires_in::Int64
-   refresh_token::String
    scope::String
    token_type::String
 end
+
+const RefreshToken = String 
+
+const Tokens = Tuple{RefreshToken, AccessToken}
 
 end
