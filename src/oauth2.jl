@@ -10,8 +10,14 @@ using ..Utils
 using ..Data
 using ..Tokens
 
-const AUTH_ENPOINT  = "https://accounts.google.com/o/oauth2/v2/auth"
-const TOKEN_ENPOINT = "https://oauth2.googleapis.com/token"
+const AUTH_ENDPOINT  = "https://accounts.google.com/o/oauth2/v2/auth"
+const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+
+atkn = Ref{Data.AccessToken}()
+
+function set_atkn!(natkn::Data.AccessToken)
+   atkn[] = natkn
+end
 
 function get_auth_url(cnfg::Data.Config)::String
    params = Dict("redirect_uri"  => cnfg.redirectUrl,
@@ -20,7 +26,7 @@ function get_auth_url(cnfg::Data.Config)::String
                  "scope"         => join(cnfg.scopes, " "),
                  "prompt"        => "select_account",
                  "response_type" => "code")
-   return URI(URI(AUTH_ENPOINT); query=params) |> string
+   return URI(URI(AUTH_ENDPOINT); query=params) |> string
 end
 
 struct AuthFailed <: Exception
@@ -75,7 +81,7 @@ function get_tokens(cnfg::Data.Config, code::String)::Data.Tokens
                "scope"         => join(cnfg.scopes, " "),
                "grant_type"    => "authorization_code")
    hdrs = ["Content-Type" => "application/x-www-form-urlencoded"]
-   resp = HTTP.post(TOKEN_ENPOINT, hdrs, URIs.escapeuri(body))
+   resp = HTTP.post(TOKEN_ENDPOINT, hdrs, URIs.escapeuri(body))
    json = resp.body |> String
    atkn = Tokens.read(json) 
    atkn.expires_in = Utils.timeInMS() + atkn.expires_in
@@ -89,28 +95,22 @@ function renew_access_token(cnfg::Data.Config, refreshToken::String)::Data.Acces
                "refresh_token" => refreshToken,
                "grant_type"    => "refresh_token")
    hdrs = ["Content-Type" => "application/x-www-form-urlencoded"]
-   resp = HTTP.post(TOKEN_ENPOINT, hdrs, URIs.escapeuri(body))
+   resp = HTTP.post(TOKEN_ENDPOINT, hdrs, URIs.escapeuri(body))
    atkn = resp.body |> String |> Tokens.read
    atkn.expires_in = Utils.timeInMS() + atkn.expires_in
    return atkn
 end
 
-function request(method, url, body, params, cnfg::Data.Config, tkns::Base.RefValue{Data.Tokens})
-   (rtkn, atkn) = tkns[]
-   # Refreshing the access_token 15 second before it expires
-   if atkn.expires_in - Utils.timeInMS() <= 15 * 1000
-      atkn = renew_access_token(cnfg, rtkn)
-      tkns[] = (rtkn, atkn)
-   end
-   hdrs = ["Authorization" => "$(atkn.token_type) $(atkn.access_token)",
+function request(method, url, body, params)
+   hdrs = ["Authorization" => "$(atkn[].token_type) $(atkn[].access_token)",
            "Accept"        => "application/json"]
-   resp = HTTP.request(method, url, hdrs, URIs.escapeuri(body); query=params)
-   return resp |> String |> JSON3.read
+   resp = HTTP.request(method, url, hdrs, JSON3.write(body); query=params)
+   return resp.body |> String |> JSON3.read
 end
 
 # It checks fPath for old refresh tokn, if available, it generate new access token and 
 # returns it, otherwise, it generates new access_token and refresh_token via oauth2 
-function get_access_token(fPath::String, cnfg::Data.Config)::Data.Tokens
+function get_tokens(fPath::String, cnfg::Data.Config)::Data.Tokens
    try
       rtkn = Tokens.read_from_file(fPath)
       atkn = renew_access_token(cnfg, rtkn)
