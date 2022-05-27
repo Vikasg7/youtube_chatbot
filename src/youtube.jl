@@ -1,5 +1,7 @@
 module Youtube
 
+using JSON3
+
 using ..Data
 using ..OAuth2
 
@@ -9,25 +11,43 @@ CHATMESSAGES_ENDPOINT  = "https://www.googleapis.com/youtube/v3/liveChat/message
 function get_livechatid()::String
    params = Dict("part" => "snippet",
                  "mine" => "true")
-   json = OAuth2.request(:GET, LIVEBROADCAST_ENDPOINT, [], params)
+   json = OAuth2.request(:GET, LIVEBROADCAST_ENDPOINT, params)
    item = get(json.items, 1, nothing)
    item === nothing && error("No Live Stream found on the Channel.")
    return item.snippet.liveChatId
 end
 
-function get_msgs(livechatid::String)
-
+function get_msgs(liveChatId::String)
+   msgs = Channel(2000)
+   params = Dict("part"       => ["snippet", "authorDetails"],
+                 "liveChatId" => liveChatId,
+                 "maxResults" => 2)
+   @async while true
+      try
+         resp = OAuth2.request(:GET, CHATMESSAGES_ENDPOINT, params)
+         for item in resp.items
+            put!(msgs, item)
+         end
+         params["pageToken"] = resp.nextPageToken
+         sleep(resp.pollingIntervalMillis/1000)
+      catch ex
+         showerror(ex, catch_backtrace())
+         close(msgs)
+         break
+      end
+   end
+   return msgs
 end
 
 function del_msg(msgId::String)
-   OAuth2.request(:DELETE, CHATMESSAGES_ENDPOINT, [], ["id" => msgId])
+   OAuth2.request(:DELETE, CHATMESSAGES_ENDPOINT, ["id" => msgId])
 end
 
 function insert_msg(msg::String, liveChatId::String)
    body = Dict("snippet" => Dict("textMessageDetails" => Dict("messageText" => msg),
                                  "liveChatId"         => liveChatId,
                                  "type"               => "textMessageEvent"))
-   OAuth2.request(:POST, CHATMESSAGES_ENDPOINT, body, ["part" => "snippet"])
+   OAuth2.request(:POST, CHATMESSAGES_ENDPOINT, ["part" => "snippet"]; body=JSON3.write(body))
 end
 
 end

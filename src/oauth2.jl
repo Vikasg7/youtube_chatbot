@@ -84,7 +84,6 @@ function get_tokens(cnfg::Data.Config, code::String)::Data.Tokens
    resp = HTTP.post(TOKEN_ENDPOINT, hdrs, URIs.escapeuri(body))
    json = resp.body |> String
    atkn = Tokens.read(json) 
-   atkn.expires_in = Utils.timeInMS() + atkn.expires_in
    rtkn = JSON3.read(json).refresh_token
    return (rtkn, atkn)
 end
@@ -97,15 +96,16 @@ function renew_access_token(cnfg::Data.Config, refreshToken::String)::Data.Acces
    hdrs = ["Content-Type" => "application/x-www-form-urlencoded"]
    resp = HTTP.post(TOKEN_ENDPOINT, hdrs, URIs.escapeuri(body))
    atkn = resp.body |> String |> Tokens.read
-   atkn.expires_in = Utils.timeInMS() + atkn.expires_in
    return atkn
 end
 
-function request(method, url, body, params)
+function request(method, url, params; body=UInt8[])
    hdrs = ["Authorization" => "$(atkn[].token_type) $(atkn[].access_token)",
-           "Accept"        => "application/json"]
-   resp = HTTP.request(method, url, hdrs, JSON3.write(body); query=params)
-   return resp.body |> String |> JSON3.read
+            "Accept"        => "application/json"]
+   resp = HTTP.request(method, url, hdrs, body; query=params)
+   json = resp.body |> String
+   json == "" && return nothing
+   return JSON3.read(json)
 end
 
 # It checks fPath for old refresh tokn, if available, it generate new access token and 
@@ -115,8 +115,8 @@ function get_tokens(fPath::String, cnfg::Data.Config)::Data.Tokens
       rtkn = Tokens.read_from_file(fPath)
       atkn = renew_access_token(cnfg, rtkn)
       (rtkn, atkn)
-   catch e
-      @error e
+   catch ex
+      showerror(ex, catch_backtrace())
       code = OAuth2.get_authorization_code(cnfg)
       (rtkn, atkn) = OAuth2.get_tokens(cnfg, code)
       Tokens.save_to_file(fPath, rtkn)

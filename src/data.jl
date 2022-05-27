@@ -7,7 +7,7 @@ struct Config
    redirectUrl::String
 end
 
-mutable struct AccessToken
+struct AccessToken
    access_token::String
    expires_in::Int64
    scope::String
