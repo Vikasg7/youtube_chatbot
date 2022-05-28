@@ -116,7 +116,7 @@ function get_tokens(fPath::String, cnfg::Data.Config)::Data.Tokens
       atkn = renew_access_token(cnfg, rtkn)
       (rtkn, atkn)
    catch ex
-      showerror(ex, catch_backtrace())
+      showerror(stderr, ex, catch_backtrace())
       code = OAuth2.get_authorization_code(cnfg)
       (rtkn, atkn) = OAuth2.get_tokens(cnfg, code)
       Tokens.save_to_file(fPath, rtkn)

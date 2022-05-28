@@ -31,7 +31,7 @@ function get_msgs(liveChatId::String)
          params["pageToken"] = resp.nextPageToken
          sleep(resp.pollingIntervalMillis/1000)
       catch ex
-         showerror(ex, catch_backtrace())
+         showerror(stderr, ex, catch_backtrace())
          close(msgs)
          break
       end

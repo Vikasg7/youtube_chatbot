@@ -16,9 +16,9 @@ function main()
    Timer(3500; interval=3500) do timer
       try
          natkn = OAuth2.renew_access_token(cnfg, rtkn)
-         OAuth2.setatkn!(natkn)
+         OAuth2.set_atkn!(natkn)
       catch ex
-         showerror(ex, catch_backtrace())
+         showerror(stderr, ex, catch_backtrace())
          close(timer)
          exit(1)
       end
