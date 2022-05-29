@@ -9,8 +9,8 @@ LIVEBROADCAST_ENDPOINT = "https://www.googleapis.com/youtube/v3/liveBroadcasts"
 CHATMESSAGES_ENDPOINT  = "https://www.googleapis.com/youtube/v3/liveChat/messages"
 
 function get_livechatid()::String
-   params = Dict("part" => "snippet",
-                 "mine" => "true")
+   params = Dict("part"            => "snippet",
+                 "broadcastStatus" => "active")
    json = OAuth2.request(:GET, LIVEBROADCAST_ENDPOINT, params)
    item = get(json.items, 1, nothing)
    item === nothing && error("No Live Stream found on the Channel.")
@@ -19,9 +19,10 @@ end
 
 function get_msgs(liveChatId::String)
    msgs = Channel(2000)
+   err  = Channel(1)
    params = Dict("part"       => ["snippet", "authorDetails"],
                  "liveChatId" => liveChatId,
-                 "maxResults" => 2)
+                 "maxResults" => 2000)
    @async while true
       try
          resp = OAuth2.request(:GET, CHATMESSAGES_ENDPOINT, params)
@@ -31,12 +32,11 @@ function get_msgs(liveChatId::String)
          params["pageToken"] = resp.nextPageToken
          sleep(resp.pollingIntervalMillis/1000)
       catch ex
-         showerror(stderr, ex, catch_backtrace())
          close(msgs)
-         break
+         put!(err, (ex, catch_backtrace()))
       end
    end
-   return msgs
+   return msgs, err
 end
 
 function del_msg(msgId::String)

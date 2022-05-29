@@ -13,23 +13,22 @@ function main()
    OAuth2.set_atkn!(atkn)
 
    # Regenerating Access Token at regular intervals
-   Timer(3500; interval=3500) do timer
-      try
-         natkn = OAuth2.renew_access_token(cnfg, rtkn)
-         OAuth2.set_atkn!(natkn)
-      catch ex
-         showerror(stderr, ex, catch_backtrace())
-         close(timer)
-         exit(1)
-      end
+   a = @async Utils.timer(3500; interval=3500) do
+      natkn = OAuth2.renew_access_token(cnfg, rtkn)
+      OAuth2.set_atkn!(natkn)
    end
 
    liveChatId = Youtube.get_livechatid()
-   msgs = Youtube.get_msgs(liveChatId)
+   msgs, msgerr = Youtube.get_msgs(liveChatId)
 
-   asyncmap(msgs) do msg
-      @show msg
+   b = @async begin
+      asyncmap(msgs) do msg
+         @show msg
+      end
    end
+
+   ex, bt = Utils.raceError(a, b, msgerr)
+   showerror(stderr, ex, bt)
 end
 
 end
