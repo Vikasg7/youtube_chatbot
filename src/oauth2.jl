@@ -65,11 +65,10 @@ end
 
 function get_authorization_code(cnfg::Data.Config)::String
    url = get_auth_url(cnfg)
-   @info "Authentication Url: $(url)"
+   println("Authentication Url: $(url)")
    escUrl = Utils.escapeAmpersand(url)
    DefaultApplication.open(escUrl; wait=true)
    code = await_authorization_code(cnfg.redirectUrl)
-   @info "Authorization Code: $(code)"
    return code
 end
 
@@ -99,7 +98,7 @@ function renew_access_token(cnfg::Data.Config, refreshToken::String)::Data.Acces
    return atkn
 end
 
-function request(method, url, params; body=UInt8[])
+function request(method, url, params; body=UInt8[], atkn=atkn)
    hdrs = ["Authorization" => "$(atkn[].token_type) $(atkn[].access_token)",
             "Accept"        => "application/json"]
    resp = HTTP.request(method, url, hdrs, body; query=params)
@@ -120,7 +119,7 @@ function get_tokens(fPath::String, cnfg::Data.Config)::Data.Tokens
       code = OAuth2.get_authorization_code(cnfg)
       (rtkn, atkn) = OAuth2.get_tokens(cnfg, code)
       Tokens.save_to_file(fPath, rtkn)
-      return (rtkn, atkn)
+      (rtkn, atkn)
    end
 end
 

@@ -5,6 +5,8 @@ include("data.jl")
 include("tokens.jl")
 include("config.jl")
 include("oauth2.jl")
+include("filters.jl")
+include("bots.jl")
 include("youtube.jl")
 
 function main()
@@ -21,11 +23,8 @@ function main()
    liveChatId = Youtube.get_livechatid()
    msgs, msgerr = Youtube.get_msgs(liveChatId)
 
-   b = @async begin
-      asyncmap(msgs) do msg
-         @show msg
-      end
-   end
+   # Processing messages
+   b = @async asyncmap(Youtube.process_msg, msgs)
 
    ex, bt = Utils.raceError(a, b, msgerr)
    showerror(stderr, ex, bt)

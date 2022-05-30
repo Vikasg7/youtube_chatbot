@@ -4,6 +4,8 @@ using JSON3
 
 using ..Data
 using ..OAuth2
+using ..Bots
+using ..Filters
 
 LIVEBROADCAST_ENDPOINT = "https://www.googleapis.com/youtube/v3/liveBroadcasts"
 CHATMESSAGES_ENDPOINT  = "https://www.googleapis.com/youtube/v3/liveChat/messages"
@@ -18,7 +20,7 @@ function get_livechatid()::String
 end
 
 function get_msgs(liveChatId::String)
-   msgs = Channel(2000)
+   msgs = Channel{Data.Msg}(2000)
    err  = Channel(1)
    params = Dict("part"       => ["snippet", "authorDetails"],
                  "liveChatId" => liveChatId,
@@ -27,7 +29,7 @@ function get_msgs(liveChatId::String)
       try
          resp = OAuth2.request(:GET, CHATMESSAGES_ENDPOINT, params)
          for item in resp.items
-            put!(msgs, item)
+            put!(msgs, Data.Msg(item))
          end
          params["pageToken"] = resp.nextPageToken
          sleep(resp.pollingIntervalMillis/1000)
@@ -43,11 +45,19 @@ function del_msg(msgId::String)
    OAuth2.request(:DELETE, CHATMESSAGES_ENDPOINT, ["id" => msgId])
 end
 
-function insert_msg(msg::String, liveChatId::String)
-   body = Dict("snippet" => Dict("textMessageDetails" => Dict("messageText" => msg),
+function insert_msg(text::String, liveChatId::String)
+   body = Dict("snippet" => Dict("textMessageDetails" => Dict("messageText" => text),
                                  "liveChatId"         => liveChatId,
                                  "type"               => "textMessageEvent"))
    OAuth2.request(:POST, CHATMESSAGES_ENDPOINT, ["part" => "snippet"]; body=JSON3.write(body))
+end
+
+function process_msg(msg::Data.Msg)
+   bot = get(Bots.botsTbl, msg.cmd, nothing)
+   if bot !== nothing
+      reply = bot(msg)
+      insert_msg(reply, msg.liveChatId)
+   end
 end
 
 end

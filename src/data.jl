@@ -18,4 +18,28 @@ const RefreshToken = String
 
 const Tokens = Tuple{RefreshToken, AccessToken}
 
+struct Msg
+   liveChatId::String
+   text::String
+   cmd::String
+   args::Vector{String}
+   msgId::String
+   author::String
+   isMod::Bool
+   isOwner::Bool
+   isSponsor::Bool
+   Msg(msg) = begin
+      cmd, args... = split(lowercase(msg.snippet.displayMessage), " ")
+      new(msg.snippet.liveChatId,
+          msg.snippet.displayMessage,
+          cmd,
+          args,
+          msg.id,
+          msg.authorDetails.displayName,
+          msg.authorDetails.isChatModerator,
+          msg.authorDetails.isChatOwner,
+          msg.authorDetails.isChatSponsor)
+   end
+end
+
 end

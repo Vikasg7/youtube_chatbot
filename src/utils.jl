@@ -23,16 +23,16 @@ function timer(fn::Function, delay=0; interval=0.1)
    end
 end
 
-# Race tasks or error channels until first error
-function raceError(fetchables...)
+# Race tasks and error channels until first error
+function raceError(fs...)
    err = Channel(1)
-   for fetchable in fetchables
-      if fetchable isa Channel
-         @async put!(err, fetch(fetchable))
+   for f in fs
+      if f isa Channel
+         @async put!(err, fetch(f))
       end
-      if fetchable isa Task
+      if f isa Task
          @async try
-            fetch(fetchable)
+            fetch(f)
          catch ex
             put!(err, (ex, catch_backtrace()))
          end
