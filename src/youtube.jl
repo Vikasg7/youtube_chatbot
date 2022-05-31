@@ -21,24 +21,19 @@ end
 
 function get_msgs(liveChatId::String)
    msgs = Channel{Data.Msg}(2000)
-   err  = Channel(1)
    params = Dict("part"       => ["snippet", "authorDetails"],
                  "liveChatId" => liveChatId,
                  "maxResults" => 2000)
-   @async while true
-      try
-         resp = OAuth2.request(:GET, CHATMESSAGES_ENDPOINT, params)
-         for item in resp.items
-            put!(msgs, Data.Msg(item))
-         end
-         params["pageToken"] = resp.nextPageToken
-         sleep(resp.pollingIntervalMillis/1000)
-      catch ex
-         close(msgs)
-         put!(err, (ex, catch_backtrace()))
+   a = @async while true
+      resp = OAuth2.request(:GET, CHATMESSAGES_ENDPOINT, params)
+      for item in resp.items
+         put!(msgs, Data.Msg(item))
       end
+      params["pageToken"] = resp.nextPageToken
+      sleep(resp.pollingIntervalMillis/1000)
    end
-   return msgs, err
+   bind(msgs, a)
+   return msgs
 end
 
 function del_msg(msgId::String)
