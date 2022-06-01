@@ -30,7 +30,7 @@ function get_msgs(liveChatId::String)::Channel{Data.Msg}
             put!(msgs, Data.Msg(item))
          end
          params["pageToken"] = resp.nextPageToken
-         sleep(resp.pollingIntervalMillis/1000)
+         sleep((resp.pollingIntervalMillis+100)/1000)
       end
    end
 end
@@ -46,11 +46,13 @@ function insert_msg(text::String, liveChatId::String)
    OAuth2.request(:POST, CHATMESSAGES_ENDPOINT, ["part" => "snippet"]; body=JSON3.write(body))
 end
 
-function process_msg(msg::Data.Msg)
+function process_msg(botname::String, msg::Data.Msg)
+   msg.sender == botname && return nothing 
    bot = get(Bots.botsTbl, msg.cmd, nothing)
    if bot !== nothing
       reply = bot(msg)
-      insert_msg(reply, msg.liveChatId)
+      reply !== nothing && 
+         insert_msg(reply, msg.liveChatId)
    end
 end
 
