@@ -14,8 +14,7 @@ function weather(msg::Data.Msg)::String
       loc = URIs.escapeuri(join(msg.args, " "))
       resp = HTTP.get("https://wttr.in/$(loc)?format=4")
       return "@$(msg.sender) " * String(resp.body)
-   catch ex
-      showerror(stderr, ex, catch_backtrace())
+   catch
       "Oops! Error fetching weather."
    end
 end
