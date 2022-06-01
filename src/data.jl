@@ -24,7 +24,7 @@ struct Msg
    cmd::String
    args::Vector{String}
    msgId::String
-   author::String
+   sender::String
    isMod::Bool
    isOwner::Bool
    isSponsor::Bool
