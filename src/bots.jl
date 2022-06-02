@@ -35,27 +35,27 @@ function list(msg::Data.Msg)::Union{Nothing, String}
          push!.(ls, msg.sender)
          return "Added @$(msg.sender) to the list."
       end
-      if subcmd == "next" && msg.isOwner
+      if (subcmd == "next") & msg.isOwner
          isempty.(ls) &&
             return "@$(msg.sender) List is empty."
-         n = parse(Int, get(args, 1, false)) || 1
+         n = parse(Int, get(args, 1, false)) | 1
          n = n > length.(ls) ? length.(ls) : n
          nextup = splice!.(ls, [1:n])
          tags = "@" * join(nextup, " @")
-         return "$(tags) You are up next. Ready up! and join the team."
+         return "$(tags) You are up next. Ready up! Join the team."
       end
-      if subcmd == "off" && msg.isOwner
+      if (subcmd == "off") & msg.isOwner
          takenOff = filter(p -> p in ls[], replace.(args, "@" => ""))
-         setdiff!.(ls, takenOff...)
+         filter!.(l -> l ∉ takenOff, ls)
          isempty(takenOff) &&
             return "@$(msg.sender) Nobody was taken off from the list."
          return "@$(takenOff.join(" @")) taken off from the list."
       end
       if subcmd == "off"
-         !(msg.sender in ls[]) &&
+         msg.sender .∉ ls &&
             return "@$(msg.sender) You are not in the list."
-         setdiff!.(ls, msg.sender)
-         return "Took @$(msg.sender) off of the list."
+         filter!.(l -> l ∉ [msg.sender], ls)
+         return "Took @$(msg.sender) off from the list."
       end
    catch ex
       showerror(stderr, ex, catch_backtrace())

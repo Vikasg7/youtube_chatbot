@@ -15,7 +15,7 @@ function main()
    OAuth2.set_atkn!(atkn)
 
    # Regenerating Access Token at regular intervals
-   rtknGen = @async Utils.timer(1; interval=3500) do
+   rtknGen = @async Utils.timer(3500; interval=3500) do
       natkn = OAuth2.renew_access_token(cnfg, rtkn)
       OAuth2.set_atkn!(natkn)
    end
