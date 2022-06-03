@@ -9,6 +9,7 @@ using ..Filters
 
 LIVEBROADCAST_ENDPOINT = "https://www.googleapis.com/youtube/v3/liveBroadcasts"
 CHATMESSAGES_ENDPOINT  = "https://www.googleapis.com/youtube/v3/liveChat/messages"
+VIDEOS_ENDPOINT        = "https://www.googleapis.com/youtube/v3/videos"
 
 function get_livechatid()::String
    params = Dict("part"            => "snippet",
@@ -17,6 +18,15 @@ function get_livechatid()::String
    item = get(json.items, 1, nothing)
    item === nothing && error("No Live Stream found on the Channel.")
    return item.snippet.liveChatId
+end
+
+function get_livechatid(videoId::String)::String
+   params = Dict("part" => "liveStreamingDetails",
+      "id" => videoId)
+   json = OAuth2.request(:GET, VIDEOS_ENDPOINT, params)
+   item = get(json.items, 1, nothing)
+   item === nothing && error("No Live Stream found on the Channel.")
+   return item.liveStreamingDetails.activeLiveChatId
 end
 
 function get_msgs(liveChatId::String)::Channel{Data.Msg}
@@ -46,14 +56,12 @@ function insert_msg(text::String, liveChatId::String)
    OAuth2.request(:POST, CHATMESSAGES_ENDPOINT, ["part" => "snippet"]; body=JSON3.write(body))
 end
 
-function process_msg(botname::String, msg::Data.Msg)
-   # msg.sender == botname && return nothing
+insert_msg(text::Nothing, liveChatId::String) = nothing
+
+function process_msg(msg::Data.Msg)
    bot = get(Bots.botsTbl, msg.cmd, nothing)
-   if bot !== nothing
-      reply = bot(msg)
-      reply !== nothing && 
-         insert_msg(reply, msg.liveChatId)
-   end
+   bot !== nothing &&
+      insert_msg(bot(msg), msg.liveChatId)
 end
 
 end

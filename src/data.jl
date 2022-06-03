@@ -5,7 +5,6 @@ struct Config
    clientSecret::String
    scopes::Vector{String}
    redirectUrl::String
-   botname::String
 end
 
 struct AccessToken

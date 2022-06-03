@@ -21,14 +21,14 @@ function main()
    end
 
    liveChatId = Youtube.get_livechatid()
-   println("$(cnfg.botname) is connected!")
+   println("Chatbot is connected!")
 
    msgs = Youtube.get_msgs(liveChatId)
    bind(msgs, rtknGen)
 
    # Processing messages
    Threads.foreach(msgs) do msg
-      Youtube.process_msg(cnfg.botname, msg)
+      Youtube.process_msg(msg)
    end
 end
 
