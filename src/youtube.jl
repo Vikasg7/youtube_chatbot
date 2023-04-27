@@ -22,7 +22,7 @@ end
 
 function get_livechatid(videoId::String)::String
    params = Dict("part" => "liveStreamingDetails",
-      "id" => videoId)
+                 "id"   => videoId)
    json = OAuth2.request(:GET, VIDEOS_ENDPOINT, params)
    item = get(json.items, 1, nothing)
    item === nothing && error("No Live Stream found on the Channel.")

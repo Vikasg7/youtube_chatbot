@@ -19,7 +19,7 @@ function weather(msg::Data.Msg)::String
    end
 end
 
-ls = Ref(["Symone", "Pumpwiz", "RAF"])
+ls = Ref([])
 
 function list(msg::Data.Msg)::Union{Nothing, String}
    try

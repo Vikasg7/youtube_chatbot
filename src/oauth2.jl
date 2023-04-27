@@ -33,15 +33,8 @@ struct AuthFailed <: Exception
    msg::String
 end
 
-function await_authorization_code(redirectUrl::String)
-   url = URI(redirectUrl)
-   # resolving localhost to ip"127.0.0.1"
-   host = Sockets.getalladdrinfo(url.host) |> last
-   port = parse(Int, url.port)
-   chnl = Channel(1)
-   # providing own socket to be able to close(server)
-   srvr = Sockets.listen(Sockets.InetAddr(host, port))
-   @async HTTP.serve(; server=srvr) do req
+function handle_oauth_response(chnl::Channel{Any})
+   function handle_request(req::HTTP.Request)::HTTP.Response
       params = queryparams(URI(req.target))
       error = get(params, "error", nothing)
       if error !== nothing
@@ -57,6 +50,17 @@ function await_authorization_code(redirectUrl::String)
       put!(chnl, code)
       HTTP.Response("Authenticated with code:- $(code)")
    end
+end
+
+function await_authorization_code(redirectUrl::String)
+   url = URI(redirectUrl)
+   # resolving localhost to ip"127.0.0.1"
+   host = Sockets.getalladdrinfo(url.host) |> last
+   port = parse(Int, url.port)
+   chnl = Channel(1)
+   # providing own socket to be able to close(server)
+   srvr = Sockets.listen(Sockets.InetAddr(host, port))
+   @async HTTP.serve(handle_oauth_response(chnl); server=srvr)
    rslt = fetch(chnl)
    close(srvr)
    rslt isa AuthFailed && throw(rslt)
