@@ -33,24 +33,23 @@ struct AuthFailed <: Exception
    msg::String
 end
 
-function handle_oauth_response(chnl::Channel{Any})
-   function handle_request(req::HTTP.Request)::HTTP.Response
-      params = queryparams(URI(req.target))
-      error = get(params, "error", nothing)
-      if error !== nothing
-         put!(chnl, AuthFailed(error))
-         return HTTP.Response("Authentication failed. Reason:- $(error)")
-      end
-      code = get(params, "code", nothing)
-      # just in case, if code is nothing
-      if code === nothing
-         put!(chnl, AuthFailed("Code is undefined"))
-         return HTTP.Response("Authentication failed. Reason:- Code is undefined")
-      end
-      put!(chnl, code)
-      HTTP.Response("Authenticated with code:- $(code)")
+function handle_oauth_callback(req::HTTP.Request, chnl::Channel{Any})::HTTP.Response
+   params = queryparams(URI(req.target))
+   error = get(params, "error", nothing)
+   if error !== nothing
+      put!(chnl, AuthFailed(error))
+      return HTTP.Response("Authentication failed. Reason:- $(error)")
    end
+   code = get(params, "code", nothing)
+   # just in case, if code is nothing
+   if code === nothing
+      put!(chnl, AuthFailed("Code is undefined"))
+      return HTTP.Response("Authentication failed. Reason:- Code is undefined")
+   end
+   put!(chnl, code)
+   HTTP.Response("Authenticated with code:- $(code)")
 end
+
 
 function await_authorization_code(redirectUrl::String)
    url = URI(redirectUrl)
@@ -60,7 +59,7 @@ function await_authorization_code(redirectUrl::String)
    chnl = Channel(1)
    # providing own socket to be able to close(server)
    srvr = Sockets.listen(Sockets.InetAddr(host, port))
-   @async HTTP.serve(handle_oauth_response(chnl); server=srvr)
+   @async HTTP.serve((req)->handle_oauth_callback(req, chnl); server=srvr)
    rslt = fetch(chnl)
    close(srvr)
    rslt isa AuthFailed && throw(rslt)
